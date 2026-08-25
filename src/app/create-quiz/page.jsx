@@ -18,6 +18,68 @@ const CreateQuiz = () => {
       options: ["", "", "", ""],
     },
   ]);
+  const [aiQuiz, setAiQuiz] = useState({
+    topic: "",
+    quizCount: 5,
+  });
+  const handleAiQuiz = (event) => {
+    if (event.target.name === "topic") {
+      setAiQuiz({ ...aiQuiz, topic: event.target.value });
+    }
+    if (event.target.name === "count") {
+      setAiQuiz({ ...aiQuiz, quizCount: Number(event.target.value) });
+    }
+  };
+
+  const generateQuestion = async () => {
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/interactions",
+      {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": process.env.TOKEN,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gemini-3.5-flash-lite",
+          input: `Write ${aiQuiz.quizCount} multiple choice quiz questions about "${aiQuiz.topic}". Keep every question one short sentence. Each question needs exactly 4 short options, a point between 1 and 5, and correctIndex pointing at the right option.`,
+          response_format: {
+            type: "text",
+            mime_type: "application/json",
+            schema: {
+              type: "object",
+              properties: {
+                questions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      question: { type: "string" },
+                      point: { type: "integer" },
+                      correctIndex: { type: "integer" },
+                      options: {
+                        type: "array",
+                        items: { type: "string" },
+                        minItems: 4,
+                        maxItems: 4,
+                      },
+                    },
+                    required: ["question", "point", "correctIndex", "options"],
+                  },
+                },
+              },
+              required: ["questions"],
+            },
+          },
+        }),
+      },
+    );
+
+    const data = await response.json();
+    const generatedAi = JSON.parse(data.steps[1].content[0].text);
+
+    setQuestions(generatedAi.questions);
+  };
 
   const addQuestion = () => {
     setQuestions([
@@ -94,6 +156,7 @@ const CreateQuiz = () => {
     } else {
     }
   };
+  if (questions === null) return <div>Loading...</div>;
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-[#DBECF4] p-4 sm:p-6">
@@ -117,6 +180,22 @@ const CreateQuiz = () => {
             onChange={(e) => setQuizName(event.target.value)}
             className="border-[#CADEED] bg-[#DBECF4]/20 text-[#2C4459] placeholder-[#7A9BB5]/60 focus-visible:ring-[#B7D0E1]"
           />
+        </div>
+
+        <div>
+          Generate Ai Quiz
+          <Input
+            name="topic"
+            value={aiQuiz.topic}
+            onChange={handleAiQuiz}
+          ></Input>
+          <Input
+            type="number"
+            name="count"
+            value={aiQuiz.quizCount}
+            onChange={handleAiQuiz}
+          ></Input>
+          <Button onClick={generateQuestion}>Generate </Button>
         </div>
 
         {questions.map((q, qIndex) => (
